@@ -1,8 +1,107 @@
 ---
-title: "Feature lenghts in GENCODE 26"
+title: "Exon lenghts in GENCODE 26"
 author: "Charles Plessy"
 output: 
   html_document: 
     keep_md: yes
     toc: yes
 ---
+
+I am intersted in the length of first exons.  To get an estimate of what to expect,
+I am using GENCODE 26.  However, I get surprising results.
+
+This analysis is done in R.  First, let's load R libraries.
+
+```{r load-libraries, message = FALSE}
+library(magrittr)
+library(GenomicRanges)
+```
+
+Then, let's download GENCODE 26.
+
+```{r download-gencode, engine='bash'}
+wget --quiet --continue ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_26/gencode.v26.annotation.gtf.gz
+```
+
+Then, let's load GENCODE 26 in R as a GenomicRanges object and discard all
+non-exon features
+
+
+```{r load-data}
+g <- rtracklayer::import.gff("gencode.v26.annotation.gtf.gz")
+
+summary(g)
+colnames(mcols(g))
+table(g$type)
+g <- g[g$type == "exon"]
+mcols(g) %<>% droplevels
+```
+
+Many transcripts have more than one exon.
+
+```{r}
+tapply(g$exon_number %>% as.numeric, g$transcript_id, max) %>% table %>% head(50) %>%
+  plot(main = "Number of exons per GENCODE transcripts", sub = "Transcripts with > 50 exons were omitted.")
+```
+
+Exons tend to be short.
+
+```{r exon-length}
+width(g) %>% summary
+width(g) %>% table %>% head(1000) %>%
+  plot(main = "Length of GENCODE exons", sub = "Exons longer than 100 nt were omitted.")
+```
+
+Some Exons are very short; they can be microexons.
+
+```{r micro-exon-length}
+width(g) %>% summary
+width(g) %>% table %>% head(20) %>%
+  plot(main = "Length of GENCODE exons", sub = "Exons longer than 20 nt were omitted.")
+```
+
+Let's focused on spliced transcripts.
+
+```{r spliced-transcripts}
+spliced <- tapply(g$exon_number %>% as.numeric, g$transcript_id, max) > 1
+gs <- g[g$transcript_id %in% names(which(spliced))]
+summary(gs)
+
+tapply(gs$exon_number %>% as.numeric, gs$transcript_id, max) %>%
+  table %>% head(50) %>%
+  plot(main = "Number of exons per spliced transcripts", sub = "Transcripts with > 50 exons were omitted.")
+ 
+width(gs) %>% table %>% head(20) %>%
+  plot( main = "Length of GENCODE spliced exons"
+      , sub = "Exons longer than 20 nt were omitted.")
+```
+
+And within them, let's focus on first exons.  Even within them, there are microexons.
+I find this surprising.
+
+```{r first-exons}
+gs1 <- gs[gs$exon_number == 1]
+
+width(gs1) %>% summary
+
+width(gs1) %>% table %>% head(20) %>%
+  plot(main = "Length of spliced first exons", sub = "Exons longer than 20 nt were omitted.")
+```
+
+Altogether, the size distribution of first spliced exons is not very different from
+all the exons together.
+
+```{r first-exons2}
+width(gs1) %>% table %>% head(1000) %>%
+  plot(main = "Length of spliced first exons", sub = "Exons longer than 500 nt were omitted.")
+```
+
+Examples
+
+```{r examples}
+options("showTailLines"=Inf) # http://stackoverflow.com/questions/16949545/show-all-lines-in-genomicrange-package-output
+
+gs1[width(gs1) < 3]
+
+options("showTailLines"=NULL)
+```

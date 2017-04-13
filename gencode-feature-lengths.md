@@ -1,4 +1,4 @@
-# Exon lengths in GENCODE 26
+# Micro-first exons in GENCODE 26
 Charles Plessy  
 
 
@@ -6,8 +6,19 @@ Charles Plessy
 knitr::opts_chunk$set(cache = TRUE)
 ```
 
-I am intersted in the length of first exons.  To get an estimate of what to expect,
-I am using GENCODE 26.  However, I get surprising results.
+## The question
+
+I am interested in the length of first exons.  To get an estimate of what to expect,
+I inspected the contents of GENCODE 26.  I am surprised to find very small first
+exons, as I do not see how these could be produced by splicing: how could the
+spliceosome handle a donor fragment that is only a few nucleotides long ?
+
+So my question is *what do these micro-first exons repesent*.  Are they just
+bugs in processing pipelines ?  Do they represent processed transcripts (in which
+case its short length is not in contradiction with splicing mechanisms).  Or
+is there something else I am missing ?
+
+## Data load and preparation
 
 This analysis is done in R.  First, let's load R libraries.
 
@@ -28,10 +39,8 @@ Then, let's load GENCODE 26 in R as a GenomicRanges object and select all
 exon features.
 
 
-
 ```r
 g <- rtracklayer::import.gff("gencode.v26.annotation.gtf.gz")
-
 summary(g)
 ```
 
@@ -73,6 +82,8 @@ ge <- g[g$type == "exon"]
 mcols(ge) %<>% droplevels
 ```
 
+## Exon lengths and number
+
 Many transcripts have more than one exon.
 
 
@@ -112,7 +123,9 @@ width(ge) %>% table %>% head(20) %>%
 
 ![](gencode-feature-lengths_files/figure-html/micro-exon-length-1.png)<!-- -->
 
-Let's focused on spliced transcripts.
+## First exons of spliced transcripts
+
+Let's focus on spliced transcripts.
 
 
 ```r
@@ -173,8 +186,11 @@ width(gs1) %>% table %>% head(20) %>%
 
 ![](gencode-feature-lengths_files/figure-html/first-microexons-1.png)<!-- -->
 
+## Examples
+
 Inspection in the UCSC browser suggested that many of these micro-first exons
-coincided with translation start sites.
+coincided with translation start sites.  Indeed, it seems to happen often, but
+not systematically.
 
 
 ```r

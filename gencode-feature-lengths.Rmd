@@ -1,11 +1,15 @@
 ---
-title: "Exon lenghts in GENCODE 26"
+title: "Exon lengths in GENCODE 26"
 author: "Charles Plessy"
 output: 
   html_document: 
     keep_md: yes
     toc: yes
 ---
+
+```{r options, message = FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+```
 
 I am intersted in the length of first exons.  To get an estimate of what to expect,
 I am using GENCODE 26.  However, I get surprising results.
@@ -23,8 +27,8 @@ Then, let's download GENCODE 26.
 wget --quiet --continue ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_26/gencode.v26.annotation.gtf.gz
 ```
 
-Then, let's load GENCODE 26 in R as a GenomicRanges object and discard all
-non-exon features
+Then, let's load GENCODE 26 in R as a GenomicRanges object and select all
+exon features.
 
 
 ```{r load-data}
@@ -33,38 +37,37 @@ g <- rtracklayer::import.gff("gencode.v26.annotation.gtf.gz")
 summary(g)
 colnames(mcols(g))
 table(g$type)
-g <- g[g$type == "exon"]
-mcols(g) %<>% droplevels
+ge <- g[g$type == "exon"]
+mcols(ge) %<>% droplevels
 ```
 
 Many transcripts have more than one exon.
 
 ```{r}
-tapply(g$exon_number %>% as.numeric, g$transcript_id, max) %>% table %>% head(50) %>%
+tapply(ge$exon_number %>% as.numeric, ge$transcript_id, max) %>% table %>% head(50) %>%
   plot(main = "Number of exons per GENCODE transcripts", sub = "Transcripts with > 50 exons were omitted.")
 ```
 
 Exons tend to be short.
 
 ```{r exon-length}
-width(g) %>% summary
-width(g) %>% table %>% head(1000) %>%
+width(ge) %>% summary
+width(ge) %>% table %>% head(1000) %>%
   plot(main = "Length of GENCODE exons", sub = "Exons longer than 100 nt were omitted.")
 ```
 
 Some Exons are very short; they can be microexons.
 
 ```{r micro-exon-length}
-width(g) %>% summary
-width(g) %>% table %>% head(20) %>%
-  plot(main = "Length of GENCODE exons", sub = "Exons longer than 20 nt were omitted.")
+width(ge) %>% table %>% head(20) %>%
+  plot(main = "Length of shortest GENCODE exons", sub = "Exons longer than 20 nt were omitted.")
 ```
 
 Let's focused on spliced transcripts.
 
 ```{r spliced-transcripts}
-spliced <- tapply(g$exon_number %>% as.numeric, g$transcript_id, max) > 1
-gs <- g[g$transcript_id %in% names(which(spliced))]
+spliced <- tapply(ge$exon_number %>% as.numeric, ge$transcript_id, max) > 1
+gs <- ge[ge$transcript_id %in% names(which(spliced))]
 summary(gs)
 
 tapply(gs$exon_number %>% as.numeric, gs$transcript_id, max) %>%
@@ -72,36 +75,50 @@ tapply(gs$exon_number %>% as.numeric, gs$transcript_id, max) %>%
   plot(main = "Number of exons per spliced transcripts", sub = "Transcripts with > 50 exons were omitted.")
  
 width(gs) %>% table %>% head(20) %>%
-  plot( main = "Length of GENCODE spliced exons"
+  plot( main = "Length of shortest GENCODE spliced exons"
       , sub = "Exons longer than 20 nt were omitted.")
 ```
 
-And within them, let's focus on first exons.  Even within them, there are microexons.
-I find this surprising.
+And within them, let's focus on first exons.  Altogether, their size distribution
+is not very different from all the exons together.
 
 ```{r first-exons}
 gs1 <- gs[gs$exon_number == 1]
 
 width(gs1) %>% summary
 
-width(gs1) %>% table %>% head(20) %>%
-  plot(main = "Length of spliced first exons", sub = "Exons longer than 20 nt were omitted.")
-```
-
-Altogether, the size distribution of first spliced exons is not very different from
-all the exons together.
-
-```{r first-exons2}
 width(gs1) %>% table %>% head(1000) %>%
   plot(main = "Length of spliced first exons", sub = "Exons longer than 500 nt were omitted.")
 ```
 
-Examples
+Surprisingly, even within first exons, there are microexons.
+
+```{r first-microexons}
+
+width(gs1) %>% table %>% head(20) %>%
+  plot(main = "Length of spliced first exons", sub = "Exons longer than 20 nt were omitted.")
+```
+
+Inspection in the UCSC browser suggested that many of these micro-first exons
+coincided with translation start sites.
 
 ```{r examples}
+options(width=110)
 options("showTailLines"=Inf) # http://stackoverflow.com/questions/16949545/show-all-lines-in-genomicrange-package-output
 
-gs1[width(gs1) < 3]
+x <- g[g$transcript_id %in% gs1[width(gs1) < 4]$transcript_id]
 
+# For display purposes, let's give names to each entry, and re-sort the names
+# of the metadata's columns.
+
+names(x) <- x$transcript_name
+
+mcols(x) <- mcols(x)[,c("type", "transcript_type", "gene_id",
+  "source", "gene_type", "transcript_id", "level", "havana_gene",  
+  "transcript_name", "transcript_support_level", "tag", "havana_transcript", 
+  "exon_number", "exon_id", "ont", "protein_id", "ccdsid", "score", "phase",
+  "gene_name")]
+
+x[x$type %in% c("start_codon", "exon") & x$exon_number == 1]
 options("showTailLines"=NULL)
 ```
